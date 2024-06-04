@@ -14,7 +14,7 @@ public class Game {
 
         // Dopasowanie rozmiaru okna do rozmiaru panelu
         frame.pack();
-        frame.setSize(GamePanel.WIDTH, GamePanel.HEIGHT);
+        frame.setSize(GamePanel.WIDTH, GamePanel.HEIGHT+28);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }

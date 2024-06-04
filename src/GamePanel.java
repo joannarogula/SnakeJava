@@ -15,7 +15,7 @@ public class GamePanel extends JPanel implements ActionListener {
     static final int ELEMENTS = 3;
     static final int OBSTACLES_NUM = 8;
     static final int GAME_UNITS = (WIDTH * HEIGHT) / UNIT_SIZE;
-    static final int DELAY = 60;
+    static final int DELAY = 80;
     static final String DATAFILE = "record.dat";
 
     final int xCoord[] = new int[GAME_UNITS];
@@ -47,6 +47,8 @@ public class GamePanel extends JPanel implements ActionListener {
 
     int xDirection = UNIT_SIZE;
     int yDirection = 0;
+    int aiXDirection = UNIT_SIZE;
+    int aiYDirection = 0;
 
     private boolean gameStarted = false;
 
@@ -104,8 +106,8 @@ public class GamePanel extends JPanel implements ActionListener {
 
     private void initializePlayerSnake() {
         // Ustawienie losowej pozycji głowy węża w bezpiecznym zakresie
-        xCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 2) * UNIT_SIZE + UNIT_SIZE;
-        yCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 2) * UNIT_SIZE + UNIT_SIZE;
+        xCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        yCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
 
         // Ustawienie segmentów ciała węża za głową
         for (int i = 1; i < segments; i++) {
@@ -114,13 +116,138 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    private void initializeAiSnake() {
+        // Ustawienie losowej pozycji głowy węża w bezpiecznym zakresie
+        aiXCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        aiYCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+
+        // Ustawienie segmentów ciała węża za głową
+        for (int i = 1; i < segments; i++) {
+            aiXCoord[i] = aiXCoord[0] - i * UNIT_SIZE;
+            aiYCoord[i] = aiYCoord[0];
+        }
+    }
+
     private void placeFruits() {
         for (int i = 0; i < ELEMENTS; i++) {
             // Losowo generujemy pozycje dla jabłek
-            xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-            yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+            xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE) - 1) * UNIT_SIZE;
+            yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE) - 1) * UNIT_SIZE;
         }
     }
+
+    private void moveAiSnake() {
+        int min = 100;
+        int nearestFruit = 0;
+
+        for (int i = 0; i < ELEMENTS; i++) {
+            int x = Math.abs(xFruits[i] - aiXCoord[0]);
+            int y = Math.abs(yFruits[i] - aiYCoord[0]);
+
+            if ((x + y) < min) {
+                min = x + y;
+                nearestFruit = i;
+            }
+        }
+
+        // Preferowane kierunki ruchu do najbliższego owocu
+        Direction[] preferredDirections = new Direction[2];
+        if (xFruits[nearestFruit] > aiXCoord[0]) {
+            preferredDirections[0] = Direction.RIGHT;
+        } else if (xFruits[nearestFruit] < aiXCoord[0]) {
+            preferredDirections[0] = Direction.LEFT;
+        } else {
+            preferredDirections[0] = null;
+        }
+
+        if (yFruits[nearestFruit] > aiYCoord[0]) {
+            preferredDirections[1] = Direction.DOWN;
+        } else if (yFruits[nearestFruit] < aiYCoord[0]) {
+            preferredDirections[1] = Direction.UP;
+        } else {
+            preferredDirections[1] = null;
+        }
+
+        // Wszystkie możliwe kierunki ruchu
+        Direction[] allDirections = { Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT };
+
+        for (Direction preferredDirection : preferredDirections) {
+            if (preferredDirection != null) {
+                if (tryMove(preferredDirection)) {
+                    return;
+                }
+            }
+        }
+
+        for (Direction direction : allDirections) {
+            if (direction != preferredDirections[0] && direction != preferredDirections[1]) {
+                if (tryMove(direction)) {
+                    return;
+                }
+            }
+        }
+    }
+
+    private boolean tryMove(Direction directionToCheck) {
+        int newXDirection = aiXDirection;
+        int newYDirection = aiYDirection;
+
+        switch (directionToCheck) {
+            case RIGHT:
+                if (aiDirection == Direction.LEFT) return false;
+                newXDirection = UNIT_SIZE;
+                newYDirection = 0;
+                break;
+            case LEFT:
+                if (aiDirection == Direction.RIGHT) return false;
+                newXDirection = -UNIT_SIZE;
+                newYDirection = 0;
+                break;
+            case UP:
+                if (aiDirection == Direction.DOWN) return false;
+                newXDirection = 0;
+                newYDirection = -UNIT_SIZE;
+                break;
+            case DOWN:
+                if (aiDirection == Direction.UP) return false;
+                newXDirection = 0;
+                newYDirection = UNIT_SIZE;
+                break;
+        }
+
+        int newX = aiXCoord[0] + newXDirection;
+        int newY = aiYCoord[0] + newYDirection;
+
+        // Sprawdzanie kolizji z ciałem węża gracza
+        for (int i = 0; i < segments; i++) {
+            if (newX == xCoord[i] && newY == yCoord[i]) {
+                return false;
+            }
+        }
+
+        // Sprawdzanie kolizji z ciałem samego węża AI
+        for (int i = 0; i < aiSegments; i++) {
+            if (newX == aiXCoord[i] && newY == aiYCoord[i]) {
+                return false;
+            }
+        }
+
+        aiDirection = directionToCheck;
+        aiXDirection = newXDirection;
+        aiYDirection = newYDirection;
+
+        for (int i = aiSegments; i > 0; i--) {
+            aiXCoord[i] = aiXCoord[i - 1];
+            aiYCoord[i] = aiYCoord[i - 1];
+        }
+
+        aiXCoord[0] += aiXDirection;
+        aiYCoord[0] += aiYDirection;
+
+        return true;
+    }
+
+
 
     private void move() {
         for (int i = segments; i > 0; i--) {
@@ -133,11 +260,20 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     private void checkFruit() {
-      System.out.println("CheckFruit");
+    //   System.out.println("CheckFruit");
         for (int i = 0; i < ELEMENTS; i++) {
             if (xCoord[0] == xFruits[i] && yCoord[0] == yFruits[i]) {
                 // Wąż zjadł jabłko, więc zwiększamy długość węża
                 segments++;
+                // Generujemy nowe położenie jabłka
+                xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE) - 1) * UNIT_SIZE;
+                yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE) - 1) * UNIT_SIZE;
+                // Zwiększamy wynik (lub robimy coś innego)
+                // increaseScore();
+            }
+            if (aiXCoord[0] == xFruits[i] && aiYCoord[0] == yFruits[i]) {
+                // Wąż zjadł jabłko, więc zwiększamy długość węża
+                aiSegments++;
                 // Generujemy nowe położenie jabłka
                 xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
                 yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
@@ -149,14 +285,42 @@ public class GamePanel extends JPanel implements ActionListener {
 
     private void checkCollisions() {
         // Sprawdzanie kolizji z krawędziami planszy
+        // Dla weza gracza
         if (xCoord[0] < 0 || xCoord[0] >= WIDTH || yCoord[0] < 0 || yCoord[0] >= HEIGHT) {
             isRunning = false;
+            System.out.println("Przegrales");
+        }
+        // Dla weza AI
+        if (aiXCoord[0] < 0 || aiXCoord[0] >= WIDTH || aiYCoord[0] < 0 || aiYCoord[0] >= HEIGHT) {
+            isRunning = false;
+            System.out.println("Wygrales");
         }
 
         // Sprawdzanie kolizji z samym sobą
+        // Dla weza gracza
         for (int i = segments; i > 0; i--) {
             if ((xCoord[0] == xCoord[i]) && (yCoord[0] == yCoord[i])) {
                 isRunning = false;
+                System.out.println("Przegrales");
+            }
+        }
+        // Dla weza AI
+        for (int i = aiSegments; i > 0; i--) {
+            if ((aiXCoord[0] == aiXCoord[i]) && (aiYCoord[0] == aiYCoord[i])) {
+                isRunning = false;
+                System.out.println("Wygrales");
+            }
+        }
+
+        // Sprawdzanie kolizji z drugim wezem
+        for (int i = aiSegments; i > 0; i--) {
+            if ((xCoord[0] == aiXCoord[i]) && (yCoord[0] == aiYCoord[i])) {
+                isRunning = false;
+                System.out.println("Przegrales");
+            }
+            if ((aiXCoord[0] == xCoord[i]) && (aiYCoord[0] == yCoord[i])) {
+                isRunning = false;
+                System.out.println("Wygrales");
             }
         }
 
@@ -168,6 +332,7 @@ public class GamePanel extends JPanel implements ActionListener {
         //         }
         //     }
         // }
+        
         // Zatrzymanie timera, jeśli gra się skończyła
         if (!isRunning) {
             timer.stop();
@@ -208,17 +373,18 @@ public class GamePanel extends JPanel implements ActionListener {
         this.getActionMap().put("turnRight", turnRightAction);
 
         initializePlayerSnake();
+        initializeAiSnake();
         placeFruits();
 
-        for (int i = 0; i < aiSegments; i++) {
-            aiXCoord[i] = WIDTH;
-            aiYCoord[i] = HEIGHT;
-        }
+        // for (int i = 0; i < aiSegments; i++) {
+        //     aiXCoord[i] = WIDTH;
+        //     aiYCoord[i] = HEIGHT;
+        // }
 
-        for (int i = 0; i < ELEMENTS; i++) {
-            xFruits[i] = -1;
-            yFruits[i] = -1;
-        }
+        // for (int i = 0; i < ELEMENTS; i++) {
+        //     xFruits[i] = 0;
+        //     yFruits[i] = 500;
+        // }
 
         start();
     }
@@ -239,6 +405,7 @@ public class GamePanel extends JPanel implements ActionListener {
         }
         if (isRunning) {
             move();
+            moveAiSnake();
             checkCollisions();
             checkFruit();
         }
