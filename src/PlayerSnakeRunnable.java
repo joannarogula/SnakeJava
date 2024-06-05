@@ -15,6 +15,7 @@ public class PlayerSnakeRunnable implements Runnable {
             move();
             gamePanel.checkFruit();
             gamePanel.checkCollisions();
+            gamePanel.repaint();
             try {
                 Thread.sleep(GamePanel.DELAY);
             } catch (InterruptedException e) {
