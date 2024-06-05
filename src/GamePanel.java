@@ -15,7 +15,7 @@ public class GamePanel extends JPanel implements ActionListener {
     static final int ELEMENTS = 3;
     static final int OBSTACLES_NUM = 8;
     static final int GAME_UNITS = (WIDTH * HEIGHT) / UNIT_SIZE;
-    static final int DELAY = 60;
+    static final int DELAY = 30;
     static final String DATAFILE = "record.dat";
 
     final int xCoord[] = new int[GAME_UNITS];
@@ -44,6 +44,9 @@ public class GamePanel extends JPanel implements ActionListener {
     Direction aiDirection = Direction.LEFT;
     Direction frogDirection = Direction.LEFT;
     File datafile;
+    private int speed = 3; // Określa, co ile ruchów węża ma być wykonany
+
+    private int moveCounter = 0; // Licznik ruchów węża
 
     int xDirection = UNIT_SIZE;
     int yDirection = 0;
@@ -116,9 +119,15 @@ public class GamePanel extends JPanel implements ActionListener {
 
     private void placeFruits() {
         for (int i = 0; i < ELEMENTS; i++) {
-            // Losowo generujemy pozycje dla jabłek
             xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+            // Losowo generujemy pozycje dla jabłek
+            while (xFruits[i] < 1 || xFruits[i] > WIDTH - 2) {
+                xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+            }
             yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+            while (yFruits[i] < 1 || yFruits[i] > HEIGHT - 2) {
+                yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+            }
         }
     }
 
@@ -133,14 +142,20 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     private void checkFruit() {
-      System.out.println("CheckFruit");
         for (int i = 0; i < ELEMENTS; i++) {
             if (xCoord[0] == xFruits[i] && yCoord[0] == yFruits[i]) {
                 // Wąż zjadł jabłko, więc zwiększamy długość węża
                 segments++;
-                // Generujemy nowe położenie jabłka
+                // Generujemy nowe położenie jabłek
+
                 xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+                while (xFruits[i] < 1 || xFruits[i] > WIDTH - 2) {
+                    xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+                }
                 yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                while (yFruits[i] < 1 || yFruits[i] > HEIGHT - 2) {
+                    yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                }
                 // Zwiększamy wynik (lub robimy coś innego)
                 // increaseScore();
             }
@@ -215,11 +230,6 @@ public class GamePanel extends JPanel implements ActionListener {
             aiYCoord[i] = HEIGHT;
         }
 
-        for (int i = 0; i < ELEMENTS; i++) {
-            xFruits[i] = -1;
-            yFruits[i] = -1;
-        }
-
         start();
     }
 
@@ -238,9 +248,17 @@ public class GamePanel extends JPanel implements ActionListener {
             return; // Nie wykonuj ruchu, jeśli gra się jeszcze nie rozpoczęła
         }
         if (isRunning) {
-            move();
-            checkCollisions();
-            checkFruit();
+
+            moveCounter++; // Inkrementuj licznik ruchów
+
+            if (moveCounter >= speed) {
+                // Wykonaj ruch węża tylko co speed ruchów
+                move();
+                checkCollisions();
+                checkFruit();
+                moveCounter = 0; // Zresetuj licznik ruchów
+            }
+            repaint();
         }
         repaint();
     }
