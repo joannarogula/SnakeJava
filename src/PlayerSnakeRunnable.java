@@ -22,6 +22,7 @@ public class PlayerSnakeRunnable implements Runnable {
                 e.printStackTrace();
             }
         }
+        gamePanel.repaint();
     }
 
     private void move() {

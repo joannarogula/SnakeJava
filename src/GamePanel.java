@@ -17,14 +17,17 @@ public class GamePanel extends JPanel implements ActionListener {
 
     final int xCoord[] = new int[GAME_UNITS];
     final int yCoord[] = new int[GAME_UNITS];
-    final int aiXCoord[] = new int[GAME_UNITS];
-    final int aiYCoord[] = new int[GAME_UNITS];
+    final int ai1XCoord[] = new int[GAME_UNITS];
+    final int ai1YCoord[] = new int[GAME_UNITS];
+    final int ai2XCoord[] = new int[GAME_UNITS];
+    final int ai2YCoord[] = new int[GAME_UNITS];
 
     final int xFruits[] = new int[ELEMENTS];
     final int yFruits[] = new int[ELEMENTS];
 
     int segments = 6;
-    int aiSegments = 6;
+    int ai1Segments = 6;
+    int ai2Segments = 6;
     int eatenFruits;
     int aiEatenFruits;
     int record;
@@ -33,19 +36,28 @@ public class GamePanel extends JPanel implements ActionListener {
     int[][] obstaclesX;
     int[][] obstaclesY;
     boolean isRunning = false;
-    boolean gamerWon = false;
-    boolean aiWon = false;
+    // boolean gamerWon = false;
+    // boolean aiWon = false;
+    boolean gamerAlive = true;
+    boolean ai1Alive = true;
+    boolean ai2Alive = true;
     Timer timer;
     Random random;
     Direction direction = Direction.RIGHT;
-    Direction aiDirection = Direction.LEFT;
+    Direction ai1Direction = Direction.LEFT;
+    Direction ai2Direction = Direction.LEFT;
     Direction frogDirection = Direction.LEFT;
     File datafile;
 
     int xDirection = UNIT_SIZE;
     int yDirection = 0;
-    int aiXDirection = UNIT_SIZE;
-    int aiYDirection = 0;
+    int ai1XDirection = UNIT_SIZE;
+    int ai1YDirection = 0;
+    int ai2XDirection = UNIT_SIZE;
+    int ai2YDirection = 0;
+
+    private Thread ai1Thread;
+    private Thread ai2Thread;
 
     private boolean gameStarted = false;
 
@@ -112,12 +124,18 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     private void initializeAiSnake() {
-        aiXCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
-        aiYCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        ai1XCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        ai1YCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        ai2XCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        ai2YCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
 
-        for (int i = 1; i < segments; i++) {
-            aiXCoord[i] = aiXCoord[0] - i * UNIT_SIZE;
-            aiYCoord[i] = aiYCoord[0];
+        for (int i = 1; i < ai1Segments; i++) {
+            ai1XCoord[i] = ai1XCoord[0] - i * UNIT_SIZE;
+            ai1YCoord[i] = ai1YCoord[0];
+        }
+        for (int i = 1; i < ai2Segments; i++) {
+            ai2XCoord[i] = ai2XCoord[0] - i * UNIT_SIZE;
+            ai2YCoord[i] = ai2YCoord[0];
         }
     }
 
@@ -154,8 +172,10 @@ public class GamePanel extends JPanel implements ActionListener {
         Thread playerThread = new Thread(new PlayerSnakeRunnable(this));
         playerThread.start();
 
-        Thread aiThread = new Thread(new AiSnakeRunnable(this));
-        aiThread.start();
+        ai1Thread = new Thread(new AiSnakeRunnable(this, 1));
+        ai1Thread.start();
+        ai2Thread = new Thread(new AiSnakeRunnable(this, 2));
+        ai2Thread.start();
     }
 
     public void paintComponent(Graphics g) {
@@ -180,13 +200,22 @@ public class GamePanel extends JPanel implements ActionListener {
                     g.fillRect(xCoord[i], yCoord[i], UNIT_SIZE, UNIT_SIZE);
                 }
             }
-            for (int i = 0; i < aiSegments; i++) {
+            for (int i = 0; i < ai1Segments; i++) {
                 if (i == 0) {
                     g.setColor(Color.BLUE);
-                    g.fillRect(aiXCoord[i], aiYCoord[i], UNIT_SIZE, UNIT_SIZE);
+                    g.fillRect(ai1XCoord[i], ai1YCoord[i], UNIT_SIZE, UNIT_SIZE);
                 } else {
-                    g.setColor(new Color(0, 0, 255));
-                    g.fillRect(aiXCoord[i], aiYCoord[i], UNIT_SIZE, UNIT_SIZE);
+                    g.setColor(new Color(100, 100, 255));
+                    g.fillRect(ai1XCoord[i], ai1YCoord[i], UNIT_SIZE, UNIT_SIZE);
+                }
+            }
+            for (int i = 0; i < ai2Segments; i++) {
+                if (i == 0) {
+                    g.setColor(Color.YELLOW);
+                    g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
+                } else {
+                    g.setColor(new Color(250, 250, 100));
+                    g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
                 }
             }
             Toolkit.getDefaultToolkit().sync();
@@ -196,9 +225,10 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     private void showGameOver(Graphics g) {
-        String message = gamerWon ? "You won!" : "Game over";
-        String aiMessage = aiWon ? "AI won!" : "";
-        String finalMessage = aiMessage.isEmpty() ? message : message + " " + aiMessage;
+        String finalMessage = gamerAlive ? "You won!" : "AI won";
+        // String message = gamerWon ? "You won!" : "Game over";
+        // String aiMessage = aiWon ? "AI won!" : "";
+        // String finalMessage = aiMessage.isEmpty() ? message : message + " " + aiMessage;
 
         g.setColor(Color.RED);
         g.setFont(new Font("Helvetica", Font.BOLD, 20));
@@ -230,23 +260,29 @@ public class GamePanel extends JPanel implements ActionListener {
         this.add(exitButton);
         this.revalidate();
         this.repaint();
-    
     }
 
     private void restartGame() {
         this.removeAll();
         segments = 6;
-        aiSegments = 6;
+        ai1Segments = 6;
+        ai2Segments = 6;
         eatenFruits = 0;
         aiEatenFruits = 0;
-        gamerWon = false;
-        aiWon = false;
+        // gamerWon = false;
+        // aiWon = false;
+        gamerAlive = true;
+        ai1Alive = true;
+        ai2Alive = true;
         direction = Direction.RIGHT;
-        aiDirection = Direction.LEFT;
+        ai1Direction = Direction.LEFT;
+        ai2Direction = Direction.LEFT;
         xDirection = UNIT_SIZE;
         yDirection = 0;
-        aiXDirection = UNIT_SIZE;
-        aiYDirection = 0;
+        ai1XDirection = UNIT_SIZE;
+        ai1YDirection = 0;
+        ai2XDirection = UNIT_SIZE;
+        ai2YDirection = 0;
         gameStarted = false;
         initializePlayerSnake();
         initializeAiSnake();
@@ -255,9 +291,11 @@ public class GamePanel extends JPanel implements ActionListener {
 
         Thread playerThread = new Thread(new PlayerSnakeRunnable(this));
         playerThread.start();
-
-        Thread aiThread = new Thread(new AiSnakeRunnable(this));
-        aiThread.start();
+ 
+        ai1Thread = new Thread(new AiSnakeRunnable(this, 1));
+        ai1Thread.start();
+        ai2Thread = new Thread(new AiSnakeRunnable(this, 2));
+        ai2Thread.start();
     }
 
 
@@ -280,57 +318,146 @@ public class GamePanel extends JPanel implements ActionListener {
 
     public void checkCollisions() {
         if (xCoord[0] < 0 || xCoord[0] >= WIDTH || yCoord[0] < 0 || yCoord[0] >= HEIGHT) {
-            isRunning = false;
-            System.out.println("Przegrales");
+            gamerAlive = false;
+            // isRunning = false;
+            // aiWon = true;
+            // System.out.println("Przegrales");
         }
 
         for (int i = segments; i > 0; i--) {
             if ((xCoord[0] == xCoord[i]) && (yCoord[0] == yCoord[i])) {
-                isRunning = false;
-                System.out.println("Przegrales");
+                gamerAlive = false;
+                // isRunning = false;
+                // aiWon = true;
             }
         }
 
-        for (int i = aiSegments; i > 0; i--) {
-            if ((xCoord[0] == aiXCoord[i]) && (yCoord[0] == aiYCoord[i])) {
-                isRunning = false;
-                aiWon = true;
-                System.out.println("AI won!");
+        for (int i = ai1Segments; i > 0; i--) {
+            if ((xCoord[0] == ai1XCoord[i]) && (yCoord[0] == ai1YCoord[i])) {
+                gamerAlive = false;
+                // isRunning = false;
+                // aiWon = true;
+                // System.out.println("AI won!");
             }
         }
-    }
 
-    public void checkAiFruit() {
-        for (int i = 0; i < ELEMENTS; i++) {
-            if (aiXCoord[0] == xFruits[i] && aiYCoord[0] == yFruits[i]) {
-                aiSegments++;
-                xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+        for (int i = ai2Segments; i > 0; i--) {
+            if ((xCoord[0] == ai2XCoord[i]) && (yCoord[0] == ai2YCoord[i])) {
+                gamerAlive = false;
+                // isRunning = false;
+                // aiWon = true;
+                // System.out.println("AI won!");
             }
         }
-    }
 
-    public void checkAiCollisions() {
-        if (aiXCoord[0] < 0 || aiXCoord[0] >= WIDTH || aiYCoord[0] < 0 || aiYCoord[0] >= HEIGHT) {
+        if(!gamerAlive) {
             isRunning = false;
-            aiWon = true;
-            System.out.println("AI 1!");
         }
+    }
 
-        for (int i = aiSegments; i > 0; i--) {
-            if ((aiXCoord[0] == aiXCoord[i]) && (aiYCoord[0] == aiYCoord[i])) {
-                isRunning = false;
-                aiWon = true;
-                System.out.println("AI 2!");
+    public void checkAiFruit(int aiId) {
+        if(aiId == 1) {
+            for (int i = 0; i < ELEMENTS; i++) {
+                if (ai1XCoord[0] == xFruits[i] && ai1YCoord[0] == yFruits[i]) {
+                    ai1Segments++;
+                    xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+                    yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                }
+            }
+        }
+        else {
+            for (int i = 0; i < ELEMENTS; i++) {
+                if (ai2XCoord[0] == xFruits[i] && ai2YCoord[0] == yFruits[i]) {
+                    ai2Segments++;
+                    xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+                    yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                }
+            }
+        }
+    }
+
+    public void checkAiCollisions(int aiId) {
+        if(aiId == 1) {
+            if (ai1XCoord[0] < 0 || ai1XCoord[0] >= WIDTH || ai1YCoord[0] < 0 || ai1YCoord[0] >= HEIGHT) {
+                ai1Alive = false;
+                ai1Thread = null;
+                // isRunning = false;
+                // gamerWon = true;
+                // aiWon = true;
+                // System.out.println("AI 1!");
+            }
+
+            for (int i = ai1Segments; i > 0; i--) {
+                if ((ai1XCoord[0] == ai1XCoord[i]) && (ai1YCoord[0] == ai1YCoord[i])) {
+                    ai1Alive = false;
+                    ai1Thread = null;
+                    // isRunning = false;
+                    // gamerWon = true;
+                    // aiWon = true;
+                    // System.out.println("AI 2!");
+                }
+            }
+
+            for (int i = ai2Segments; i > 0; i--) {
+                if ((ai1XCoord[0] == ai2XCoord[i]) && (ai1YCoord[0] == ai2YCoord[i])) {
+                    ai1Alive = false;
+                    ai1Thread = null;
+                }
+            }
+
+            for (int i = segments; i > 0; i--) {
+                if ((ai1XCoord[0] == xCoord[i]) && (ai1YCoord[0] == yCoord[i])) {
+                    ai1Alive = false;
+                    ai1Thread = null;
+                    // isRunning = false;
+                    // gamerWon = true;
+                    // aiWon = true;
+                    // System.out.println("AI 3!");
+                }
+            }
+        }
+        else {
+            if (ai2XCoord[0] < 0 || ai2XCoord[0] >= WIDTH || ai2YCoord[0] < 0 || ai2YCoord[0] >= HEIGHT) {
+                ai2Alive = false;
+                ai2Thread = null;
+                // isRunning = false;
+                // gamerWon = true;
+                // aiWon = true;
+                // System.out.println("AI 1!");
+            }
+
+            for (int i = ai2Segments; i > 0; i--) {
+                if ((ai2XCoord[0] == ai2XCoord[i]) && (ai2YCoord[0] == ai2YCoord[i])) {
+                    ai2Alive = false;
+                    ai2Thread = null;
+                    // isRunning = false;
+                    // gamerWon = true;
+                    // aiWon = true;
+                    // System.out.println("AI 2!");
+                }
+            }
+
+            for (int i = ai1Segments; i > 0; i--) {
+                if ((ai2XCoord[0] == ai1XCoord[i]) && (ai2YCoord[0] == ai1YCoord[i])) {
+                    ai2Alive = false;
+                    ai2Thread = null;
+                }
+            }
+
+            for (int i = segments; i > 0; i--) {
+                if ((ai2XCoord[0] == xCoord[i]) && (ai2YCoord[0] == yCoord[i])) {
+                    ai2Alive = false;
+                    ai2Thread = null;
+                    // isRunning = false;
+                    // gamerWon = true;
+                    // aiWon = true;
+                    // System.out.println("AI 3!");
+                }
             }
         }
 
-        for (int i = segments; i > 0; i--) {
-            if ((aiXCoord[0] == xCoord[i]) && (aiYCoord[0] == yCoord[i])) {
-                isRunning = false;
-                aiWon = true;
-                System.out.println("AI 3!");
-            }
+        if(!ai1Alive && !ai2Alive) {
+            isRunning = false;
         }
     }
 
@@ -362,46 +489,6 @@ public class GamePanel extends JPanel implements ActionListener {
         return yDirection;
     }
 
-    public int getAiSegments() {
-        return aiSegments;
-    }
-
-    public int getAiXCoord(int index) {
-        return aiXCoord[index];
-    }
-
-    public int getAiYCoord(int index) {
-        return aiYCoord[index];
-    }
-
-    public void setAiXCoord(int index, int value) {
-        aiXCoord[index] = value;
-    }
-
-    public void setAiYCoord(int index, int value) {
-        aiYCoord[index] = value;
-    }
-
-    public int getAiXDirection() {
-        return aiXDirection;
-    }
-
-    public int getAiYDirection() {
-        return aiYDirection;
-    }
-
-    public boolean isRunning() {
-        return isRunning;
-    }
-
-    public Direction getAiDirection() {
-        return aiDirection;
-    }
-
-    public void setAiDirection(Direction aiDirection) {
-        this.aiDirection = aiDirection;
-    }
-
     public int getXFruits(int index) {
         return xFruits[index];
     }
@@ -410,11 +497,103 @@ public class GamePanel extends JPanel implements ActionListener {
         return yFruits[index];
     }
 
-    public void setAiXDirection(int aiXDirection) {
-        this.aiXDirection = aiXDirection;
+    public boolean isRunning() {
+        return isRunning;
     }
 
-    public void setAiYDirection(int aiYDirection) {
-        this.aiYDirection = aiYDirection;
+    public int getAi1Segments() {
+        return ai1Segments;
+    }
+
+    public int getAi1XCoord(int index) {
+        return ai1XCoord[index];
+    }
+
+    public int getAi1YCoord(int index) {
+        return ai1YCoord[index];
+    }
+
+    public void setAi1XCoord(int index, int value) {
+        ai1XCoord[index] = value;
+    }
+
+    public void setAi1YCoord(int index, int value) {
+        ai1YCoord[index] = value;
+    }
+
+    public int getAi1XDirection() {
+        return ai1XDirection;
+    }
+
+    public int getAi1YDirection() {
+        return ai1YDirection;
+    }
+
+    public Direction getAi1Direction() {
+        return ai1Direction;
+    }
+
+    public void setAi1Direction(Direction aiDirection) {
+        this.ai1Direction = aiDirection;
+    }
+
+    public void setAi1XDirection(int aiXDirection) {
+        this.ai1XDirection = aiXDirection;
+    }
+
+    public void setAi1YDirection(int aiYDirection) {
+        this.ai1YDirection = aiYDirection;
+    }
+
+    public int getAi2Segments() {
+        return ai2Segments;
+    }
+
+    public int getAi2XCoord(int index) {
+        return ai2XCoord[index];
+    }
+
+    public int getAi2YCoord(int index) {
+        return ai2YCoord[index];
+    }
+
+    public void setAi2XCoord(int index, int value) {
+        ai2XCoord[index] = value;
+    }
+
+    public void setAi2YCoord(int index, int value) {
+        ai2YCoord[index] = value;
+    }
+
+    public int getAi2XDirection() {
+        return ai2XDirection;
+    }
+
+    public int getAi2YDirection() {
+        return ai2YDirection;
+    }
+
+    public Direction getAi2Direction() {
+        return ai2Direction;
+    }
+
+    public void setAi2Direction(Direction aiDirection) {
+        this.ai2Direction = aiDirection;
+    }
+
+    public void setAi2XDirection(int aiXDirection) {
+        this.ai2XDirection = aiXDirection;
+    }
+
+    public void setAi2YDirection(int aiYDirection) {
+        this.ai2YDirection = aiYDirection;
+    }
+
+    public boolean isAi1Alive() {
+        return ai1Alive;
+    }
+
+    public boolean isAi2Alive() {
+        return ai2Alive;
     }
 }
