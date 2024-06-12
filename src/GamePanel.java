@@ -1,20 +1,29 @@
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 import javax.swing.*;
 
 public class GamePanel extends JPanel implements ActionListener {
 
-    static final int WIDTH = 500;
-    static final int HEIGHT = 500;
+    static final int WIDTH = 600;
+    static final int HEIGHT = 600;
     static final int UNIT_SIZE = 10;
     static final int ELEMENTS = 5;
     static final int OBSTACLES_NUM = 8;
     static final int GAME_UNITS = (WIDTH * HEIGHT) / UNIT_SIZE;
     static final int DELAY = 80;
     static final String DATAFILE = "record.dat";
-
+    private ArrayList<Integer> highScores = new ArrayList<>();
+    
     final int xCoord[] = new int[GAME_UNITS];
     final int yCoord[] = new int[GAME_UNITS];
     final int ai1XCoord[] = new int[GAME_UNITS];
@@ -28,7 +37,7 @@ public class GamePanel extends JPanel implements ActionListener {
     int segments = 6;
     int ai1Segments = 6;
     int ai2Segments = 6;
-    int eatenFruits;
+    int eatenObjects = 0;
     int aiEatenFruits;
     int record;
     int xFrog;
@@ -58,6 +67,7 @@ public class GamePanel extends JPanel implements ActionListener {
 
     private Thread ai1Thread;
     private Thread ai2Thread;
+    private Thread frogThread;
 
     private boolean gameStarted = false;
 
@@ -139,6 +149,11 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    private void initializeFrog() {
+        xFrog = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+        yFrog = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+    }
+
     private void placeFruits() {
         for (int i = 0; i < ELEMENTS; i++) {
             xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE) - 1) * UNIT_SIZE;
@@ -162,9 +177,11 @@ public class GamePanel extends JPanel implements ActionListener {
         this.getActionMap().put("turnLeft", turnLeftAction);
         this.getActionMap().put("turnRight", turnRightAction);
 
+        loadHighScores();
         initializePlayerSnake();
         initializeAiSnake();
         placeFruits();
+        initializeFrog();
 
         isRunning = true;
 
@@ -176,6 +193,48 @@ public class GamePanel extends JPanel implements ActionListener {
         ai1Thread.start();
         ai2Thread = new Thread(new AiSnakeRunnable(this, 2));
         ai2Thread.start();
+
+        frogThread = new Thread(new FrogRunnable(this)); // Uruchomienie wątku żaby
+        frogThread.start();
+    }
+
+    private void loadHighScores() {
+    try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(DATAFILE))) {
+        highScores = (ArrayList<Integer>) ois.readObject();
+    } catch (IOException | ClassNotFoundException e) {
+        highScores = new ArrayList<>();
+    }
+}
+
+private void saveHighScores() {
+    try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(DATAFILE))) {
+        oos.writeObject(highScores);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+
+    private void updateHighScores(int newScore) {
+    highScores.add(newScore);
+    Collections.sort(highScores, Collections.reverseOrder());
+    if (highScores.size() > 3) {
+        highScores = new ArrayList<>(highScores.subList(0, 3));
+    }
+    saveHighScores();
+}
+
+
+    private void showHighScores(Graphics g) {
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Helvetica", Font.BOLD, 16));
+        FontMetrics metrics = getFontMetrics(g.getFont());
+        String scoreTitle = "Top 3 Scores:";
+        g.drawString(scoreTitle, (WIDTH - metrics.stringWidth(scoreTitle)) / 2, HEIGHT / 2 + 50);
+
+        for (int i = 0; i < highScores.size(); i++) {
+            String scoreText = (i + 1) + ": " + highScores.get(i);
+            g.drawString(scoreText, (WIDTH - metrics.stringWidth(scoreText)) / 2, HEIGHT / 2 + 70 + (i * 20));
+        }
     }
 
     public void paintComponent(Graphics g) {
@@ -189,7 +248,7 @@ public class GamePanel extends JPanel implements ActionListener {
                 g.setColor(Color.RED);
                 g.fillOval(xFruits[i], yFruits[i], UNIT_SIZE, UNIT_SIZE);
             }
-            // g.setColor(Color.RED);
+            g.setColor(new Color(0, 100, 0));
             g.fillRect(xFrog, yFrog, UNIT_SIZE, UNIT_SIZE);
             for (int i = 0; i < segments; i++) {
                 if (i == 0) {
@@ -218,6 +277,13 @@ public class GamePanel extends JPanel implements ActionListener {
                     g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
                 }
             }
+
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Helvetica", Font.BOLD, 20));
+            FontMetrics metrics = getFontMetrics(g.getFont());
+            String scoreText = "Score: " + eatenObjects;
+            g.drawString(scoreText, (WIDTH - metrics.stringWidth(scoreText)) / 2, g.getFont().getSize());
+
             Toolkit.getDefaultToolkit().sync();
         } else {
             showGameOver(g);
@@ -234,6 +300,9 @@ public class GamePanel extends JPanel implements ActionListener {
         g.setFont(new Font("Helvetica", Font.BOLD, 20));
         FontMetrics metrics = getFontMetrics(g.getFont());
         g.drawString(finalMessage, (WIDTH - metrics.stringWidth(finalMessage)) / 2, HEIGHT / 2);
+
+        updateHighScores(eatenObjects);
+        showHighScores(g);
 
         // Dodaj przycisk Restart
         JButton restartButton = new JButton("Restart");
@@ -267,7 +336,7 @@ public class GamePanel extends JPanel implements ActionListener {
         segments = 6;
         ai1Segments = 6;
         ai2Segments = 6;
-        eatenFruits = 0;
+        eatenObjects = 0;
         aiEatenFruits = 0;
         // gamerWon = false;
         // aiWon = false;
@@ -286,18 +355,18 @@ public class GamePanel extends JPanel implements ActionListener {
         gameStarted = false;
         initializePlayerSnake();
         initializeAiSnake();
+        initializeFrog();
         placeFruits();
         isRunning = true;
 
         Thread playerThread = new Thread(new PlayerSnakeRunnable(this));
         playerThread.start();
- 
+
         ai1Thread = new Thread(new AiSnakeRunnable(this, 1));
         ai1Thread.start();
         ai2Thread = new Thread(new AiSnakeRunnable(this, 2));
         ai2Thread.start();
     }
-
 
     @Override
     public void actionPerformed(ActionEvent e) {
@@ -312,7 +381,14 @@ public class GamePanel extends JPanel implements ActionListener {
                 segments++;
                 xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
                 yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                eatenObjects++;
             }
+        }
+
+        if (xCoord[0] == xFrog && yCoord[0] == yFrog) {
+            segments++;
+            initializeFrog();
+            eatenObjects++;
         }
     }
 
@@ -350,13 +426,17 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        if(!gamerAlive) {
+        if (xCoord[0] == xFrog && yCoord[0] == yFrog) {
+            gamerAlive = false;
+        }
+
+        if (!gamerAlive) {
             isRunning = false;
         }
     }
 
     public void checkAiFruit(int aiId) {
-        if(aiId == 1) {
+        if (aiId == 1) {
             for (int i = 0; i < ELEMENTS; i++) {
                 if (ai1XCoord[0] == xFruits[i] && ai1YCoord[0] == yFruits[i]) {
                     ai1Segments++;
@@ -364,8 +444,7 @@ public class GamePanel extends JPanel implements ActionListener {
                     yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
                 }
             }
-        }
-        else {
+        } else {
             for (int i = 0; i < ELEMENTS; i++) {
                 if (ai2XCoord[0] == xFruits[i] && ai2YCoord[0] == yFruits[i]) {
                     ai2Segments++;
@@ -377,7 +456,7 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     public void checkAiCollisions(int aiId) {
-        if(aiId == 1) {
+        if (aiId == 1) {
             if (ai1XCoord[0] < 0 || ai1XCoord[0] >= WIDTH || ai1YCoord[0] < 0 || ai1YCoord[0] >= HEIGHT) {
                 ai1Alive = false;
                 ai1Thread = null;
@@ -415,8 +494,7 @@ public class GamePanel extends JPanel implements ActionListener {
                     // System.out.println("AI 3!");
                 }
             }
-        }
-        else {
+        } else {
             if (ai2XCoord[0] < 0 || ai2XCoord[0] >= WIDTH || ai2YCoord[0] < 0 || ai2YCoord[0] >= HEIGHT) {
                 ai2Alive = false;
                 ai2Thread = null;
@@ -456,7 +534,7 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        if(!ai1Alive && !ai2Alive) {
+        if (!ai1Alive && !ai2Alive) {
             isRunning = false;
         }
     }
