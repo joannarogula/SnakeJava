@@ -1,72 +1,103 @@
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 public class FrogRunnable implements Runnable {
     private final GamePanel gamePanel;
     private final Random random;
-    private int currentDirection;
-    private int movesInCurrentDirection;
-    private static final int MAX_MOVES_IN_ONE_DIRECTION = 10; // liczba ruchów w jednym kierunku
+    private final Semaphore semaphore;
+    private final Semaphore semaphoreReady;
+    private final int WIDTH;
+    private final int HEIGHT;
+    private final int ELEMENTS;
+    private final int UNIT_SIZE;
 
-    public FrogRunnable(GamePanel gamePanel) {
+
+    public FrogRunnable(GamePanel gamePanel, Semaphore semaphore, Semaphore semaphoreReady) {
         this.gamePanel = gamePanel;
         this.random = new Random();
-        this.currentDirection = random.nextInt(4);
-        this.movesInCurrentDirection = 0;
+        this.semaphore = semaphore;
+        this.semaphoreReady = semaphoreReady;
+        this.WIDTH = gamePanel.WIDTH;
+        this.HEIGHT = gamePanel.HEIGHT;
+        this.ELEMENTS = gamePanel.ELEMENTS;
+        this.UNIT_SIZE = gamePanel.UNIT_SIZE;
     }
 
     @Override
     public void run() {
-        while (gamePanel.isRunning()) {
-            moveFrog();
-            gamePanel.repaint();
+        while (gamePanel.isRunning) {
             try {
-                Thread.sleep(GamePanel.DELAY * 3); // Żaba porusza się co dwa razy wolniej niż węże
+                semaphore.acquire();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            moveFrog();
+
+            semaphoreReady.release();
         }
     }
 
     private void moveFrog() {
-        if (movesInCurrentDirection >= MAX_MOVES_IN_ONE_DIRECTION) {
-            changeDirection();
-            movesInCurrentDirection = 0;
-        }
+        int X = gamePanel.xFrog;
+        int Y = gamePanel.yFrog;
+        int newX;
+        int newY;
 
-        int newX = gamePanel.xFrog;
-        int newY = gamePanel.yFrog;
+        do {
+            int d = random.nextInt(4);
+            Direction dir = Direction.values()[d];
 
-        switch (currentDirection) {
-            case 0:
-                newY -= GamePanel.UNIT_SIZE; // Move up
-                break;
-            case 1:
-                newX += GamePanel.UNIT_SIZE; // Move right
-                break;
-            case 2:
-                newY += GamePanel.UNIT_SIZE; // Move down
-                break;
-            case 3:
-                newX -= GamePanel.UNIT_SIZE; // Move left
-                break;
-        }
+            newX = X + dir.getXOffset() * UNIT_SIZE;
+            newY = Y + dir.getYOffset() * UNIT_SIZE;
+        } while (!isFree(newX, newY));
 
-        // Sprawdzanie, czy nowa pozycja żaby jest w granicach planszy
-        if (isPositionValid(newX, newY)) {
-            gamePanel.xFrog = newX;
-            gamePanel.yFrog = newY;
-            movesInCurrentDirection++;
-        } else {
-            // Jeśli nowa pozycja jest poza granicami, zmień kierunek
-            changeDirection();
-        }
+        gamePanel.xFrog = newX;
+        gamePanel.yFrog = newY;
     }
 
-    private boolean isPositionValid(int x, int y) {
-        return x >= 0 && x < GamePanel.WIDTH && y >= 0 && y < GamePanel.HEIGHT;
-    }
+    private boolean isFree(int x, int y) {
+        int xCenter = WIDTH / 2;
+        int yCenter = HEIGHT / 2;
+        if ((x >= xCenter - UNIT_SIZE && x <= xCenter + UNIT_SIZE &&
+                y <= yCenter + 15 * UNIT_SIZE && y >= yCenter - 15 * UNIT_SIZE) ||
+                (x >= xCenter - 15 * UNIT_SIZE && x <= xCenter + 15 * UNIT_SIZE &&
+                        y <= yCenter + UNIT_SIZE && y >= yCenter - UNIT_SIZE)) {
+            return false;
+        }
 
-    private void changeDirection() {
-        currentDirection = random.nextInt(4);
+        if (x < 0 || x >= GamePanel.WIDTH || y < 0 || y >= GamePanel.HEIGHT) {
+            return false;
+        }
+
+        for (int i = 0; i < gamePanel.segments; i++) {
+            if (x == gamePanel.xCoord[i] && y == gamePanel.yCoord[i]) {
+                return false;
+            }
+        }
+
+        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża AI1
+        if (gamePanel.ai1Alive) {
+            for (int i = 0; i < gamePanel.ai1Segments; i++) {
+                if (x == gamePanel.ai1XCoord[i] && y == gamePanel.ai1YCoord[i]) {
+                    return false;
+                }
+            }
+        }
+
+        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża AI2
+        if (gamePanel.ai2Alive) {
+            for (int i = 0; i < gamePanel.ai2Segments; i++) {
+                if (x == gamePanel.ai2XCoord[i] && y == gamePanel.ai2YCoord[i]) {
+                    return false;
+                }
+            }
+        }
+
+        for (int i = 0; i < GamePanel.ELEMENTS; i++) {
+            if (x == gamePanel.xFruits[i] && y == gamePanel.yFruits[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

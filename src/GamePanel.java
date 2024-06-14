@@ -1,52 +1,37 @@
-
 import java.awt.*;
 import java.awt.event.*;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 import javax.swing.*;
 
 public class GamePanel extends JPanel implements ActionListener {
-
     static final int WIDTH = 600;
     static final int HEIGHT = 600;
     static final int UNIT_SIZE = 10;
     static final int ELEMENTS = 5;
-    static final int OBSTACLES_NUM = 8;
     static final int GAME_UNITS = (WIDTH * HEIGHT) / UNIT_SIZE;
-    static final int DELAY = 80;
-    static final String DATAFILE = "record.dat";
-    private ArrayList<Integer> highScores = new ArrayList<>();
-    
-    final int xCoord[] = new int[GAME_UNITS];
-    final int yCoord[] = new int[GAME_UNITS];
-    final int ai1XCoord[] = new int[GAME_UNITS];
-    final int ai1YCoord[] = new int[GAME_UNITS];
-    final int ai2XCoord[] = new int[GAME_UNITS];
-    final int ai2YCoord[] = new int[GAME_UNITS];
+    static final int DELAY = 100;
 
-    final int xFruits[] = new int[ELEMENTS];
-    final int yFruits[] = new int[ELEMENTS];
+    int[] xCoord = new int[GAME_UNITS];
+    int[] yCoord = new int[GAME_UNITS];
+    int[] ai1XCoord = new int[GAME_UNITS];
+    int[] ai1YCoord = new int[GAME_UNITS];
+    int[] ai2XCoord = new int[GAME_UNITS];
+    int[] ai2YCoord = new int[GAME_UNITS];
+
+    int[] xFruits = new int[ELEMENTS];
+    int[] yFruits = new int[ELEMENTS];
 
     int segments = 6;
     int ai1Segments = 6;
     int ai2Segments = 6;
     int eatenObjects = 0;
     int aiEatenFruits;
-    int record;
     int xFrog;
     int yFrog;
-    int[][] obstaclesX;
-    int[][] obstaclesY;
     boolean isRunning = false;
-    // boolean gamerWon = false;
-    // boolean aiWon = false;
     boolean gamerAlive = true;
     boolean ai1Alive = true;
     boolean ai2Alive = true;
@@ -55,8 +40,6 @@ public class GamePanel extends JPanel implements ActionListener {
     Direction direction = Direction.RIGHT;
     Direction ai1Direction = Direction.LEFT;
     Direction ai2Direction = Direction.LEFT;
-    Direction frogDirection = Direction.LEFT;
-    File datafile;
 
     int xDirection = UNIT_SIZE;
     int yDirection = 0;
@@ -65,11 +48,22 @@ public class GamePanel extends JPanel implements ActionListener {
     int ai2XDirection = UNIT_SIZE;
     int ai2YDirection = 0;
 
+    boolean gameStarted = false;
+
+    private Thread playerThread;
     private Thread ai1Thread;
     private Thread ai2Thread;
     private Thread frogThread;
 
-    private boolean gameStarted = false;
+    Semaphore playerSemaphore = new Semaphore(0);
+    Semaphore semaphoreReady = new Semaphore(0);
+    Semaphore ai1Semaphore = new Semaphore(0);
+    Semaphore ai2Semaphore = new Semaphore(0);
+    Semaphore frogSemaphore = new Semaphore(0);
+
+    HighScoreManager manager = new HighScoreManager();
+    List<Integer> highScores = manager.getHighScores();
+    List<Point> obstacle = new ArrayList<>();
 
     Action turnUpAction = new AbstractAction() {
         public void actionPerformed(ActionEvent e) {
@@ -124,8 +118,8 @@ public class GamePanel extends JPanel implements ActionListener {
     };
 
     private void initializePlayerSnake() {
-        xCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
-        yCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        xCoord[0] = findX();
+        yCoord[0] = findY();
 
         for (int i = 1; i < segments; i++) {
             xCoord[i] = xCoord[0] - i * UNIT_SIZE;
@@ -134,10 +128,10 @@ public class GamePanel extends JPanel implements ActionListener {
     }
 
     private void initializeAiSnake() {
-        ai1XCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
-        ai1YCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
-        ai2XCoord[0] = random.nextInt((WIDTH / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
-        ai2YCoord[0] = random.nextInt((HEIGHT / UNIT_SIZE) - 6) * UNIT_SIZE + UNIT_SIZE;
+        ai1XCoord[0] = findX();
+        ai1YCoord[0] = findY();
+        ai2XCoord[0] = findX();
+        ai2YCoord[0] = findY();
 
         for (int i = 1; i < ai1Segments; i++) {
             ai1XCoord[i] = ai1XCoord[0] - i * UNIT_SIZE;
@@ -149,15 +143,78 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    private void initializeFrog() {
-        xFrog = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-        yFrog = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+    public void initializeFrog() {
+        xFrog = findX();
+        yFrog = findY();
     }
 
     private void placeFruits() {
         for (int i = 0; i < ELEMENTS; i++) {
-            xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE) - 1) * UNIT_SIZE;
-            yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE) - 1) * UNIT_SIZE;
+            xFruits[i] = findX();
+            yFruits[i] = findY();
+        }
+    }
+
+    private int findX() {
+        int x;
+        int xCenter = WIDTH / 2;
+
+        do {
+            x = random.nextInt((WIDTH / UNIT_SIZE) - 1) * UNIT_SIZE;
+        } while ((x >= xCenter - UNIT_SIZE && x <= xCenter + UNIT_SIZE) ||
+                (x >= xCenter - 15 * UNIT_SIZE && x <= xCenter + 15 * UNIT_SIZE));
+
+        return x;
+    }
+
+    private int findY() {
+        int y;
+        int yCenter = HEIGHT / 2;
+
+        do {
+            y = random.nextInt((HEIGHT / UNIT_SIZE) - 1) * UNIT_SIZE;
+        } while ((y <= yCenter + 15 * UNIT_SIZE && y >= yCenter - 15 * UNIT_SIZE) ||
+                (y <= yCenter + UNIT_SIZE && y >= yCenter - UNIT_SIZE));
+
+        return y;
+    }
+
+    private void placeObstacle() {
+        int size = 15;
+        int centerX = WIDTH / 2;
+        int centerY = HEIGHT / 2;
+
+        obstacle.add(new Point(centerX, centerY - size * UNIT_SIZE));
+        obstacle.add(new Point(centerX + UNIT_SIZE, centerY - size * UNIT_SIZE));
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX + UNIT_SIZE, centerY - i * UNIT_SIZE));
+        }
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX + i * UNIT_SIZE, centerY - UNIT_SIZE));
+        }
+        obstacle.add(new Point(centerX + size * UNIT_SIZE, centerY));
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX + i * UNIT_SIZE, centerY + UNIT_SIZE));
+        }
+        obstacle.add(new Point(centerX, centerY + size * UNIT_SIZE));
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX + UNIT_SIZE, centerY + i * UNIT_SIZE));
+        }
+        obstacle.add(new Point(centerX - size * UNIT_SIZE, centerY));
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX - UNIT_SIZE, centerY + i * UNIT_SIZE));
+        }
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX + i * UNIT_SIZE, centerY + UNIT_SIZE));
+        }
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX - i * UNIT_SIZE, centerY + UNIT_SIZE));
+        }
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX - i * UNIT_SIZE, centerY - UNIT_SIZE));
+        }
+        for( int i = size; i > 0; i-- ) {
+            obstacle.add(new Point(centerX - UNIT_SIZE, centerY - i * UNIT_SIZE));
         }
     }
 
@@ -177,7 +234,7 @@ public class GamePanel extends JPanel implements ActionListener {
         this.getActionMap().put("turnLeft", turnLeftAction);
         this.getActionMap().put("turnRight", turnRightAction);
 
-        loadHighScores();
+        placeObstacle();
         initializePlayerSnake();
         initializeAiSnake();
         placeFruits();
@@ -185,55 +242,86 @@ public class GamePanel extends JPanel implements ActionListener {
 
         isRunning = true;
 
-        // Start the Player Snake and AI Snake in separate threads
-        Thread playerThread = new Thread(new PlayerSnakeRunnable(this));
+        playerThread = new Thread(new PlayerSnakeRunnable(this, playerSemaphore, semaphoreReady));
+        ai1Thread = new Thread(new AiSnakeRunnable(this, 1, ai1Semaphore, semaphoreReady));
+        ai2Thread = new Thread(new AiSnakeRunnable(this, 2, ai2Semaphore, semaphoreReady));
+        frogThread = new Thread(new FrogRunnable(this, frogSemaphore, semaphoreReady));
+
         playerThread.start();
-
-        ai1Thread = new Thread(new AiSnakeRunnable(this, 1));
         ai1Thread.start();
-        ai2Thread = new Thread(new AiSnakeRunnable(this, 2));
         ai2Thread.start();
-
-        frogThread = new Thread(new FrogRunnable(this)); // Uruchomienie wątku żaby
         frogThread.start();
+
+        timer = new Timer(DELAY, this);
+        timer.start();
     }
 
-    private void loadHighScores() {
-    try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(DATAFILE))) {
-        highScores = (ArrayList<Integer>) ois.readObject();
-    } catch (IOException | ClassNotFoundException e) {
-        highScores = new ArrayList<>();
-    }
-}
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (isRunning) {
+            if (ai1Alive && ai2Alive) {
+                playerSemaphore.release();
+                ai1Semaphore.release();
+                ai2Semaphore.release();
+                frogSemaphore.release();
 
-private void saveHighScores() {
-    try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(DATAFILE))) {
-        oos.writeObject(highScores);
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-}
+                try {
+                    semaphoreReady.acquire(4);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            else if (ai1Alive) {
+                ai2Thread = null;
 
-    private void updateHighScores(int newScore) {
-    highScores.add(newScore);
-    Collections.sort(highScores, Collections.reverseOrder());
-    if (highScores.size() > 3) {
-        highScores = new ArrayList<>(highScores.subList(0, 3));
-    }
-    saveHighScores();
-}
+                playerSemaphore.release();
+                ai1Semaphore.release();
+                frogSemaphore.release();
 
+                try {
+                    semaphoreReady.acquire(3);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            else if (ai2Alive) {
+                ai1Thread = null;
+
+                playerSemaphore.release();
+                ai2Semaphore.release();
+                frogSemaphore.release();
+
+                try {
+                    semaphoreReady.acquire(3);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            else {
+                manager.updateHighScores(eatenObjects);
+                isRunning = false;
+            }
+            if (!gamerAlive) {
+                manager.updateHighScores(eatenObjects);
+                isRunning = false;
+            }
+
+            repaint();
+        }
+    }
 
     private void showHighScores(Graphics g) {
         g.setColor(Color.WHITE);
-        g.setFont(new Font("Helvetica", Font.BOLD, 16));
+        g.setFont(new Font("Helvetica", Font.BOLD, 30));
         FontMetrics metrics = getFontMetrics(g.getFont());
-        String scoreTitle = "Top 3 Scores:";
-        g.drawString(scoreTitle, (WIDTH - metrics.stringWidth(scoreTitle)) / 2, HEIGHT / 2 + 50);
+        String scoreTitle = "Top 3 scores:";
+        g.drawString(scoreTitle, (WIDTH - metrics.stringWidth(scoreTitle)) / 2, HEIGHT / 2 + 100);
+
+        highScores = manager.getHighScores();
 
         for (int i = 0; i < highScores.size(); i++) {
             String scoreText = (i + 1) + ": " + highScores.get(i);
-            g.drawString(scoreText, (WIDTH - metrics.stringWidth(scoreText)) / 2, HEIGHT / 2 + 70 + (i * 20));
+            g.drawString(scoreText, (WIDTH - metrics.stringWidth(scoreText)) / 2, HEIGHT / 2 + 140 + (i * 40));
         }
     }
 
@@ -244,6 +332,10 @@ private void saveHighScores() {
 
     private void draw(Graphics g) {
         if (isRunning) {
+            g.setColor(Color.GRAY);
+            for (Point obstacle : obstacle) {
+                g.fillRect(obstacle.x, obstacle.y, UNIT_SIZE, UNIT_SIZE);
+            }
             for (int i = 0; i < ELEMENTS; i++) {
                 g.setColor(Color.RED);
                 g.fillOval(xFruits[i], yFruits[i], UNIT_SIZE, UNIT_SIZE);
@@ -259,22 +351,26 @@ private void saveHighScores() {
                     g.fillRect(xCoord[i], yCoord[i], UNIT_SIZE, UNIT_SIZE);
                 }
             }
-            for (int i = 0; i < ai1Segments; i++) {
-                if (i == 0) {
-                    g.setColor(Color.BLUE);
-                    g.fillRect(ai1XCoord[i], ai1YCoord[i], UNIT_SIZE, UNIT_SIZE);
-                } else {
-                    g.setColor(new Color(100, 100, 255));
-                    g.fillRect(ai1XCoord[i], ai1YCoord[i], UNIT_SIZE, UNIT_SIZE);
+            if (ai1Alive) {
+                for (int i = 0; i < ai1Segments; i++) {
+                    if (i == 0) {
+                        g.setColor(Color.BLUE);
+                        g.fillRect(ai1XCoord[i], ai1YCoord[i], UNIT_SIZE, UNIT_SIZE);
+                    } else {
+                        g.setColor(new Color(100, 100, 255));
+                        g.fillRect(ai1XCoord[i], ai1YCoord[i], UNIT_SIZE, UNIT_SIZE);
+                    }
                 }
             }
-            for (int i = 0; i < ai2Segments; i++) {
-                if (i == 0) {
-                    g.setColor(Color.YELLOW);
-                    g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
-                } else {
-                    g.setColor(new Color(250, 250, 100));
-                    g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
+            if (ai2Alive) {
+                for (int i = 0; i < ai2Segments; i++) {
+                    if (i == 0) {
+                        g.setColor(Color.YELLOW);
+                        g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
+                    } else {
+                        g.setColor(new Color(250, 250, 100));
+                        g.fillRect(ai2XCoord[i], ai2YCoord[i], UNIT_SIZE, UNIT_SIZE);
+                    }
                 }
             }
 
@@ -291,22 +387,18 @@ private void saveHighScores() {
     }
 
     private void showGameOver(Graphics g) {
-        String finalMessage = gamerAlive ? "You won!" : "AI won";
-        // String message = gamerWon ? "You won!" : "Game over";
-        // String aiMessage = aiWon ? "AI won!" : "";
-        // String finalMessage = aiMessage.isEmpty() ? message : message + " " + aiMessage;
+        String finalMessage = gamerAlive ? "You won!" : "You lost!";
 
         g.setColor(Color.RED);
-        g.setFont(new Font("Helvetica", Font.BOLD, 20));
+        g.setFont(new Font("Helvetica", Font.BOLD, 50));
         FontMetrics metrics = getFontMetrics(g.getFont());
-        g.drawString(finalMessage, (WIDTH - metrics.stringWidth(finalMessage)) / 2, HEIGHT / 2);
+        g.drawString(finalMessage, (WIDTH - metrics.stringWidth(finalMessage)) / 2, 100);
 
-        updateHighScores(eatenObjects);
         showHighScores(g);
 
         // Dodaj przycisk Restart
         JButton restartButton = new JButton("Restart");
-        restartButton.setBounds((WIDTH - 100) / 2, (HEIGHT / 2) + 30, 100, 30);
+        restartButton.setBounds((WIDTH - 100) / 2, 150, 100, 30);
         restartButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -316,7 +408,7 @@ private void saveHighScores() {
 
         // Dodaj przycisk Exit
         JButton exitButton = new JButton("Exit");
-        exitButton.setBounds((WIDTH - 100) / 2, (HEIGHT / 2) + 70, 100, 30);
+        exitButton.setBounds((WIDTH - 100) / 2, 180, 100, 30);
         exitButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -338,8 +430,6 @@ private void saveHighScores() {
         ai2Segments = 6;
         eatenObjects = 0;
         aiEatenFruits = 0;
-        // gamerWon = false;
-        // aiWon = false;
         gamerAlive = true;
         ai1Alive = true;
         ai2Alive = true;
@@ -359,319 +449,14 @@ private void saveHighScores() {
         placeFruits();
         isRunning = true;
 
-        Thread playerThread = new Thread(new PlayerSnakeRunnable(this));
+        playerThread = new Thread(new PlayerSnakeRunnable(this, playerSemaphore, semaphoreReady));
+        ai1Thread = new Thread(new AiSnakeRunnable(this, 1, ai1Semaphore, semaphoreReady));
+        ai2Thread = new Thread(new AiSnakeRunnable(this, 2, ai2Semaphore, semaphoreReady));
+        frogThread = new Thread(new FrogRunnable(this, frogSemaphore, semaphoreReady));
+
         playerThread.start();
-
-        ai1Thread = new Thread(new AiSnakeRunnable(this, 1));
         ai1Thread.start();
-        ai2Thread = new Thread(new AiSnakeRunnable(this, 2));
         ai2Thread.start();
-    }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        if (isRunning) {
-            repaint();
-        }
-    }
-
-    public void checkFruit() {
-        for (int i = 0; i < ELEMENTS; i++) {
-            if (xCoord[0] == xFruits[i] && yCoord[0] == yFruits[i]) {
-                segments++;
-                xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
-                eatenObjects++;
-            }
-        }
-
-        if (xCoord[0] == xFrog && yCoord[0] == yFrog) {
-            segments++;
-            initializeFrog();
-            eatenObjects++;
-        }
-    }
-
-    public void checkCollisions() {
-        if (xCoord[0] < 0 || xCoord[0] >= WIDTH || yCoord[0] < 0 || yCoord[0] >= HEIGHT) {
-            gamerAlive = false;
-            // isRunning = false;
-            // aiWon = true;
-            // System.out.println("Przegrales");
-        }
-
-        for (int i = segments; i > 0; i--) {
-            if ((xCoord[0] == xCoord[i]) && (yCoord[0] == yCoord[i])) {
-                gamerAlive = false;
-                // isRunning = false;
-                // aiWon = true;
-            }
-        }
-
-        for (int i = ai1Segments; i > 0; i--) {
-            if ((xCoord[0] == ai1XCoord[i]) && (yCoord[0] == ai1YCoord[i])) {
-                gamerAlive = false;
-                // isRunning = false;
-                // aiWon = true;
-                // System.out.println("AI won!");
-            }
-        }
-
-        for (int i = ai2Segments; i > 0; i--) {
-            if ((xCoord[0] == ai2XCoord[i]) && (yCoord[0] == ai2YCoord[i])) {
-                gamerAlive = false;
-                // isRunning = false;
-                // aiWon = true;
-                // System.out.println("AI won!");
-            }
-        }
-
-        if (xCoord[0] == xFrog && yCoord[0] == yFrog) {
-            gamerAlive = false;
-        }
-
-        if (!gamerAlive) {
-            isRunning = false;
-        }
-    }
-
-    public void checkAiFruit(int aiId) {
-        if (aiId == 1) {
-            for (int i = 0; i < ELEMENTS; i++) {
-                if (ai1XCoord[0] == xFruits[i] && ai1YCoord[0] == yFruits[i]) {
-                    ai1Segments++;
-                    xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                    yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
-                }
-            }
-        } else {
-            for (int i = 0; i < ELEMENTS; i++) {
-                if (ai2XCoord[0] == xFruits[i] && ai2YCoord[0] == yFruits[i]) {
-                    ai2Segments++;
-                    xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                    yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
-                }
-            }
-        }
-    }
-
-    public void checkAiCollisions(int aiId) {
-        if (aiId == 1) {
-            if (ai1XCoord[0] < 0 || ai1XCoord[0] >= WIDTH || ai1YCoord[0] < 0 || ai1YCoord[0] >= HEIGHT) {
-                ai1Alive = false;
-                ai1Thread = null;
-                // isRunning = false;
-                // gamerWon = true;
-                // aiWon = true;
-                // System.out.println("AI 1!");
-            }
-
-            for (int i = ai1Segments; i > 0; i--) {
-                if ((ai1XCoord[0] == ai1XCoord[i]) && (ai1YCoord[0] == ai1YCoord[i])) {
-                    ai1Alive = false;
-                    ai1Thread = null;
-                    // isRunning = false;
-                    // gamerWon = true;
-                    // aiWon = true;
-                    // System.out.println("AI 2!");
-                }
-            }
-
-            for (int i = ai2Segments; i > 0; i--) {
-                if ((ai1XCoord[0] == ai2XCoord[i]) && (ai1YCoord[0] == ai2YCoord[i])) {
-                    ai1Alive = false;
-                    ai1Thread = null;
-                }
-            }
-
-            for (int i = segments; i > 0; i--) {
-                if ((ai1XCoord[0] == xCoord[i]) && (ai1YCoord[0] == yCoord[i])) {
-                    ai1Alive = false;
-                    ai1Thread = null;
-                    // isRunning = false;
-                    // gamerWon = true;
-                    // aiWon = true;
-                    // System.out.println("AI 3!");
-                }
-            }
-        } else {
-            if (ai2XCoord[0] < 0 || ai2XCoord[0] >= WIDTH || ai2YCoord[0] < 0 || ai2YCoord[0] >= HEIGHT) {
-                ai2Alive = false;
-                ai2Thread = null;
-                // isRunning = false;
-                // gamerWon = true;
-                // aiWon = true;
-                // System.out.println("AI 1!");
-            }
-
-            for (int i = ai2Segments; i > 0; i--) {
-                if ((ai2XCoord[0] == ai2XCoord[i]) && (ai2YCoord[0] == ai2YCoord[i])) {
-                    ai2Alive = false;
-                    ai2Thread = null;
-                    // isRunning = false;
-                    // gamerWon = true;
-                    // aiWon = true;
-                    // System.out.println("AI 2!");
-                }
-            }
-
-            for (int i = ai1Segments; i > 0; i--) {
-                if ((ai2XCoord[0] == ai1XCoord[i]) && (ai2YCoord[0] == ai1YCoord[i])) {
-                    ai2Alive = false;
-                    ai2Thread = null;
-                }
-            }
-
-            for (int i = segments; i > 0; i--) {
-                if ((ai2XCoord[0] == xCoord[i]) && (ai2YCoord[0] == yCoord[i])) {
-                    ai2Alive = false;
-                    ai2Thread = null;
-                    // isRunning = false;
-                    // gamerWon = true;
-                    // aiWon = true;
-                    // System.out.println("AI 3!");
-                }
-            }
-        }
-
-        if (!ai1Alive && !ai2Alive) {
-            isRunning = false;
-        }
-    }
-
-    public int getSegments() {
-        return segments;
-    }
-
-    public int getXCoord(int index) {
-        return xCoord[index];
-    }
-
-    public int getYCoord(int index) {
-        return yCoord[index];
-    }
-
-    public void setXCoord(int index, int value) {
-        xCoord[index] = value;
-    }
-
-    public void setYCoord(int index, int value) {
-        yCoord[index] = value;
-    }
-
-    public int getXDirection() {
-        return xDirection;
-    }
-
-    public int getYDirection() {
-        return yDirection;
-    }
-
-    public int getXFruits(int index) {
-        return xFruits[index];
-    }
-
-    public int getYFruits(int index) {
-        return yFruits[index];
-    }
-
-    public boolean isRunning() {
-        return isRunning;
-    }
-
-    public int getAi1Segments() {
-        return ai1Segments;
-    }
-
-    public int getAi1XCoord(int index) {
-        return ai1XCoord[index];
-    }
-
-    public int getAi1YCoord(int index) {
-        return ai1YCoord[index];
-    }
-
-    public void setAi1XCoord(int index, int value) {
-        ai1XCoord[index] = value;
-    }
-
-    public void setAi1YCoord(int index, int value) {
-        ai1YCoord[index] = value;
-    }
-
-    public int getAi1XDirection() {
-        return ai1XDirection;
-    }
-
-    public int getAi1YDirection() {
-        return ai1YDirection;
-    }
-
-    public Direction getAi1Direction() {
-        return ai1Direction;
-    }
-
-    public void setAi1Direction(Direction aiDirection) {
-        this.ai1Direction = aiDirection;
-    }
-
-    public void setAi1XDirection(int aiXDirection) {
-        this.ai1XDirection = aiXDirection;
-    }
-
-    public void setAi1YDirection(int aiYDirection) {
-        this.ai1YDirection = aiYDirection;
-    }
-
-    public int getAi2Segments() {
-        return ai2Segments;
-    }
-
-    public int getAi2XCoord(int index) {
-        return ai2XCoord[index];
-    }
-
-    public int getAi2YCoord(int index) {
-        return ai2YCoord[index];
-    }
-
-    public void setAi2XCoord(int index, int value) {
-        ai2XCoord[index] = value;
-    }
-
-    public void setAi2YCoord(int index, int value) {
-        ai2YCoord[index] = value;
-    }
-
-    public int getAi2XDirection() {
-        return ai2XDirection;
-    }
-
-    public int getAi2YDirection() {
-        return ai2YDirection;
-    }
-
-    public Direction getAi2Direction() {
-        return ai2Direction;
-    }
-
-    public void setAi2Direction(Direction aiDirection) {
-        this.ai2Direction = aiDirection;
-    }
-
-    public void setAi2XDirection(int aiXDirection) {
-        this.ai2XDirection = aiXDirection;
-    }
-
-    public void setAi2YDirection(int aiYDirection) {
-        this.ai2YDirection = aiYDirection;
-    }
-
-    public boolean isAi1Alive() {
-        return ai1Alive;
-    }
-
-    public boolean isAi2Alive() {
-        return ai2Alive;
+        frogThread.start();
     }
 }
