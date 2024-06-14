@@ -78,8 +78,10 @@ public class PlayerSnakeRunnable implements Runnable {
             if (gamePanel.xCoord[0] == gamePanel.xFruits[i] && gamePanel.yCoord[0] == gamePanel.yFruits[i]) {
                 gamePanel.segments++;
                 gamePanel.eatenObjects++;
-                gamePanel.xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                gamePanel.yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                // gamePanel.xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
+                // gamePanel.yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                gamePanel.xFruits[i] = gamePanel.findX();
+                gamePanel.yFruits[i] = gamePanel.findY();
             }
         }
 

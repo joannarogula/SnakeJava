@@ -14,6 +14,10 @@ public class FrogRunnable implements Runnable {
     private final int HEIGHT;
     private final int ELEMENTS;
     private final int UNIT_SIZE;
+    private int currentDirection;
+    private int movesInCurrentDirection;
+    private static final int MAX_MOVES_IN_ONE_DIRECTION = 10; // liczba ruchów w jednym kierunku
+
 
     /**
      * Constructs a FrogRunnable object.
@@ -31,6 +35,9 @@ public class FrogRunnable implements Runnable {
         this.HEIGHT = gamePanel.HEIGHT;
         this.ELEMENTS = gamePanel.ELEMENTS;
         this.UNIT_SIZE = gamePanel.UNIT_SIZE;
+        this.currentDirection = random.nextInt(4);
+        this.movesInCurrentDirection = 0;
+        
     }
 
     /**
@@ -56,21 +63,38 @@ public class FrogRunnable implements Runnable {
      * The new position is determined randomly and checked to be free of obstacles.
      */
     private void moveFrog() {
-        int X = gamePanel.xFrog;
-        int Y = gamePanel.yFrog;
-        int newX;
-        int newY;
+        if (movesInCurrentDirection >= MAX_MOVES_IN_ONE_DIRECTION) {
+            currentDirection = random.nextInt(4); // Zmień kierunek
+            movesInCurrentDirection = 0;
+        }
 
-        do {
-            int d = random.nextInt(4);
-            Direction dir = Direction.values()[d];
+        int newX = gamePanel.xFrog;
+        int newY = gamePanel.yFrog;
 
-            newX = X + dir.getXOffset() * UNIT_SIZE;
-            newY = Y + dir.getYOffset() * UNIT_SIZE;
-        } while (!isFree(newX, newY));
+        switch (currentDirection) {
+            case 0:
+                newY -= GamePanel.UNIT_SIZE; // Move up
+                break;
+            case 1:
+                newX += GamePanel.UNIT_SIZE; // Move right
+                break;
+            case 2:
+                newY += GamePanel.UNIT_SIZE; // Move down
+                break;
+            case 3:
+                newX -= GamePanel.UNIT_SIZE; // Move left
+                break;
+        }
 
-        gamePanel.xFrog = newX;
-        gamePanel.yFrog = newY;
+        if (newX >= 0 && newX < GamePanel.WIDTH && newY >= 0 && newY < GamePanel.HEIGHT) {
+            gamePanel.xFrog = newX;
+            gamePanel.yFrog = newY;
+            movesInCurrentDirection++;
+        } else {
+            // Jeśli nowa pozycja jest poza granicami, zmień kierunek
+            currentDirection = random.nextInt(4);
+            movesInCurrentDirection = 0;
+        }
     }
 
     /**

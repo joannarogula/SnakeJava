@@ -174,7 +174,7 @@ public class GamePanel extends JPanel implements ActionListener {
      * Finds a random x-coordinate within the game board boundaries, avoiding the central obstacle area.
      * @return a valid x-coordinate
      */
-    private int findX() {
+    public int findX() {
         int x;
         int xCenter = WIDTH / 2;
 
@@ -190,7 +190,7 @@ public class GamePanel extends JPanel implements ActionListener {
      * Finds a random y-coordinate within the game board boundaries, avoiding the central obstacle area.
      * @return a valid y-coordinate
      */
-    private int findY() {
+   public int findY() {
         int y;
         int yCenter = HEIGHT / 2;
 
@@ -293,7 +293,7 @@ public class GamePanel extends JPanel implements ActionListener {
      */
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (isRunning) {
+        if (isRunning && gameStarted) {
             if (ai1Alive && ai2Alive) {
                 playerSemaphore.release();
                 ai1Semaphore.release();

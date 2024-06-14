@@ -196,16 +196,16 @@ public class AiSnakeRunnable implements Runnable {
             for (int i = 0; i < ELEMENTS; i++) {
                 if (gamePanel.ai1XCoord[0] == gamePanel.xFruits[i] && gamePanel.ai1YCoord[0] == gamePanel.yFruits[i]) {
                     gamePanel.ai1Segments++;
-                    gamePanel.xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                    gamePanel.yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                    gamePanel.xFruits[i] = gamePanel.findX();
+                    gamePanel.yFruits[i] = gamePanel.findY();
                 }
             }
         } else {
             for (int i = 0; i < ELEMENTS; i++) {
                 if (gamePanel.ai2XCoord[0] == gamePanel.xFruits[i] && gamePanel.ai2YCoord[0] == gamePanel.yFruits[i]) {
                     gamePanel.ai2Segments++;
-                    gamePanel.xFruits[i] = random.nextInt((WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-                    gamePanel.yFruits[i] = random.nextInt((HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
+                    gamePanel.xFruits[i] = gamePanel.findX();
+                    gamePanel.yFruits[i] = gamePanel.findY();
                 }
             }
         }
