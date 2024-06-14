@@ -1,0 +1,1 @@
+typeSearchIndex = [{"p":"<Unnamed>","l":"AiSnakeRunnable"},{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"<Unnamed>","l":"Direction"},{"p":"<Unnamed>","l":"FrogRunnable"},{"p":"<Unnamed>","l":"Game"},{"p":"<Unnamed>","l":"GamePanel"},{"p":"<Unnamed>","l":"HighScoreManager"},{"p":"<Unnamed>","l":"PlayerSnakeRunnable"}];updateSearchResults();
