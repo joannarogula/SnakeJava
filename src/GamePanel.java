@@ -6,6 +6,9 @@ import java.util.Random;
 import java.util.concurrent.Semaphore;
 import javax.swing.*;
 
+/**
+ * GamePanel represents the main game panel where the snake game is rendered and controlled.
+ */
 public class GamePanel extends JPanel implements ActionListener {
     static final int WIDTH = 600;
     static final int HEIGHT = 600;
@@ -117,6 +120,9 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     };
 
+    /**
+     * Initializes the player's snake with its starting position and segments.
+     */
     private void initializePlayerSnake() {
         xCoord[0] = findX();
         yCoord[0] = findY();
@@ -127,6 +133,9 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Initializes the AI snakes with their starting positions and segments.
+     */
     private void initializeAiSnake() {
         ai1XCoord[0] = findX();
         ai1YCoord[0] = findY();
@@ -143,11 +152,17 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Initializes the frog with a random position on the game board.
+     */
     public void initializeFrog() {
         xFrog = findX();
         yFrog = findY();
     }
 
+    /**
+     * Places fruits randomly on the game board.
+     */
     private void placeFruits() {
         for (int i = 0; i < ELEMENTS; i++) {
             xFruits[i] = findX();
@@ -155,6 +170,10 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Finds a random x-coordinate within the game board boundaries, avoiding the central obstacle area.
+     * @return a valid x-coordinate
+     */
     private int findX() {
         int x;
         int xCenter = WIDTH / 2;
@@ -167,6 +186,10 @@ public class GamePanel extends JPanel implements ActionListener {
         return x;
     }
 
+    /**
+     * Finds a random y-coordinate within the game board boundaries, avoiding the central obstacle area.
+     * @return a valid y-coordinate
+     */
     private int findY() {
         int y;
         int yCenter = HEIGHT / 2;
@@ -179,6 +202,9 @@ public class GamePanel extends JPanel implements ActionListener {
         return y;
     }
 
+    /**
+     * Places a cross-shaped obstacle in the center of the game board.
+     */
     private void placeObstacle() {
         int size = 15;
         int centerX = WIDTH / 2;
@@ -218,6 +244,11 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Constructor for GamePanel. Initializes the game board, player and AI snakes, fruits, and frog.
+     * Sets up key bindings for controlling the player snake.
+     * Starts the game timer and threads for player, AI snakes, and frog.
+     */
     public GamePanel() {
         random = new Random();
         this.setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -256,6 +287,10 @@ public class GamePanel extends JPanel implements ActionListener {
         timer.start();
     }
 
+    /**
+     * Main game loop. Updates game state at each timer tick and start threads.
+     * @param e the ActionEvent triggered by the timer
+     */
     @Override
     public void actionPerformed(ActionEvent e) {
         if (isRunning) {
@@ -310,6 +345,10 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Displays the top 3 results from the file.
+     * @param g the Graphics object used for drawing
+     */
     private void showHighScores(Graphics g) {
         g.setColor(Color.WHITE);
         g.setFont(new Font("Helvetica", Font.BOLD, 30));
@@ -325,11 +364,19 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Paints the game board, including snakes, fruits, frog, and obstacle.
+     * Also displays the current score and game over screen if applicable.
+     */
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         draw(g);
     }
 
+    /**
+     * Draws the game elements (snakes, fruits, frog, obstacle) and score on the game board.
+     * @param g the Graphics object used for drawing
+     */
     private void draw(Graphics g) {
         if (isRunning) {
             g.setColor(Color.GRAY);
@@ -386,6 +433,9 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Displays the screen after the game: game result, buttons and top scores.
+     */
     private void showGameOver(Graphics g) {
         String finalMessage = gamerAlive ? "You won!" : "You lost!";
 
@@ -396,7 +446,6 @@ public class GamePanel extends JPanel implements ActionListener {
 
         showHighScores(g);
 
-        // Dodaj przycisk Restart
         JButton restartButton = new JButton("Restart");
         restartButton.setBounds((WIDTH - 100) / 2, 150, 100, 30);
         restartButton.addActionListener(new ActionListener() {
@@ -406,7 +455,6 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         });
 
-        // Dodaj przycisk Exit
         JButton exitButton = new JButton("Exit");
         exitButton.setBounds((WIDTH - 100) / 2, 180, 100, 30);
         exitButton.addActionListener(new ActionListener() {
@@ -423,6 +471,9 @@ public class GamePanel extends JPanel implements ActionListener {
         this.repaint();
     }
 
+    /**
+     * Restarts the game, updating the variables to the initial game state.
+     */
     private void restartGame() {
         this.removeAll();
         segments = 6;

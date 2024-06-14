@@ -1,7 +1,10 @@
-import java.awt.*;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
+/**
+ * Represents the AI-controlled snake's behavior in the game.
+ * Implements Runnable to allow the snake to run in its own thread.
+ */
 public class AiSnakeRunnable implements Runnable {
     private final GamePanel gamePanel;
     private final Random random;
@@ -13,6 +16,14 @@ public class AiSnakeRunnable implements Runnable {
     private final int ELEMENTS;
     private final int UNIT_SIZE;
 
+    /**
+     * Constructs an AiSnakeRunnable with the specified game panel, AI identifier, and semaphores.
+     *
+     * @param gamePanel      the game panel where the snake operates
+     * @param aiId           the identifier for the AI snake (1 or 2)
+     * @param semaphore      the semaphore used to control AI snake movement
+     * @param semaphoreReady the semaphore used to signal the AI snake is ready for the next action
+     */
     public AiSnakeRunnable(GamePanel gamePanel, int aiId, Semaphore semaphore, Semaphore semaphoreReady) {
         this.gamePanel = gamePanel;
         this.aiId = aiId;
@@ -26,6 +37,10 @@ public class AiSnakeRunnable implements Runnable {
         this.UNIT_SIZE = gamePanel.UNIT_SIZE;
     }
 
+    /**
+     * Runs the AI snake's main loop, acquiring the semaphore, making a move, checking for fruit,
+     * checking for collisions, and releasing the semaphore.
+     */
     @Override
     public void run() {
         while (gamePanel.isRunning) {
@@ -43,6 +58,9 @@ public class AiSnakeRunnable implements Runnable {
         }
     }
 
+    /**
+     * Makes a move for the AI snake, determining the optimal direction based on the nearest fruit.
+     */
     private void makeAiMove() {
         int minDistanceFruit = Integer.MAX_VALUE;
         int minDistanceTarget = Integer.MAX_VALUE;
@@ -120,6 +138,13 @@ public class AiSnakeRunnable implements Runnable {
         }
     }
 
+    /**
+     * Checks if the specified coordinates are safe for the AI snake to move to.
+     *
+     * @param x the x-coordinate to check
+     * @param y the y-coordinate to check
+     * @return true if the coordinates are safe, false otherwise
+     */
     private boolean isSafe(int x, int y) {
         int xCenter = WIDTH / 2;
         int yCenter = HEIGHT / 2;
@@ -132,19 +157,16 @@ public class AiSnakeRunnable implements Runnable {
             return false;
         }
 
-        // Sprawdzanie, czy nowa pozycja nie koliduje z granicami pola gry
         if (x < 0 || x >= GamePanel.WIDTH || y < 0 || y >= GamePanel.HEIGHT) {
             return false;
         }
 
-        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża gracza
         for (int i = 0; i < gamePanel.segments; i++) {
             if (x == gamePanel.xCoord[i] && y == gamePanel.yCoord[i]) {
                 return false;
             }
         }
 
-        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża AI1
         if (gamePanel.ai1Alive) {
             for (int i = 0; i < gamePanel.ai1Segments; i++) {
                 if (x == gamePanel.ai1XCoord[i] && y == gamePanel.ai1YCoord[i]) {
@@ -153,7 +175,6 @@ public class AiSnakeRunnable implements Runnable {
             }
         }
 
-        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża AI2
         if (gamePanel.ai2Alive) {
             for (int i = 0; i < gamePanel.ai2Segments; i++) {
                 if (x == gamePanel.ai2XCoord[i] && y == gamePanel.ai2YCoord[i]) {
@@ -165,6 +186,11 @@ public class AiSnakeRunnable implements Runnable {
         return true;
     }
 
+    /**
+     * Checks if the AI snake has eaten a fruit, and updates its state accordingly.
+     *
+     * @param aiId the identifier for the AI snake (1 or 2)
+     */
     public void checkAiFruit(int aiId) {
         if (aiId == 1) {
             for (int i = 0; i < ELEMENTS; i++) {
@@ -185,6 +211,11 @@ public class AiSnakeRunnable implements Runnable {
         }
     }
 
+    /**
+     * Checks for collisions between the AI snake and other game elements (field boundaries, player snake, other AI snake).
+     *
+     * @param aiId the identifier for the AI snake (1 or 2)
+     */
     public void checkAiCollisions(int aiId) {
         int xCenter = WIDTH / 2;
         int yCenter = HEIGHT / 2;

@@ -1,6 +1,10 @@
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
+/**
+ * Represents a player-controlled snake in the game.
+ * Implements the Runnable interface to allow the snake to run on a separate thread.
+ */
 public class PlayerSnakeRunnable implements Runnable {
     private final GamePanel gamePanel;
     private final Semaphore semaphore;
@@ -12,7 +16,13 @@ public class PlayerSnakeRunnable implements Runnable {
     private final int ELEMENTS;
     private final int UNIT_SIZE;
 
-
+    /**
+     * Constructs a PlayerSnakeRunnable object.
+     *
+     * @param gamePanel      the game panel instance
+     * @param semaphore      the semaphore to control thread execution
+     * @param semaphoreReady the semaphore to signal thread readiness
+     */
     public PlayerSnakeRunnable(GamePanel gamePanel, Semaphore semaphore, Semaphore semaphoreReady) {
         this.gamePanel = gamePanel;
         this.semaphore = semaphore;
@@ -25,6 +35,10 @@ public class PlayerSnakeRunnable implements Runnable {
         this.UNIT_SIZE = GamePanel.UNIT_SIZE;
     }
 
+    /**
+     * The main run method for the player snake thread.
+     * Acquires the semaphore, performs movement, fruit checking, and collision checking, then releases the semaphore.
+     */
     @Override
     public void run() {
         while (gamePanel.isRunning) {
@@ -42,6 +56,9 @@ public class PlayerSnakeRunnable implements Runnable {
         }
     }
 
+    /**
+     * Moves the snake by updating its coordinates based on the current direction.
+     */
     private void move() {
         for (int i = gamePanel.segments; i > 0; i--) {
             gamePanel.xCoord[i] = gamePanel.xCoord[i - 1];
@@ -52,6 +69,10 @@ public class PlayerSnakeRunnable implements Runnable {
         gamePanel.yCoord[0] = gamePanel.yCoord[0] + gamePanel.yDirection;
     }
 
+    /**
+     * Checks if the snake has eaten a fruit.
+     * If a fruit is eaten, increases the snake's length and updates the fruit's position.
+     */
     public void checkFruit() {
         for (int i = 0; i < ELEMENTS; i++) {
             if (gamePanel.xCoord[0] == gamePanel.xFruits[i] && gamePanel.yCoord[0] == gamePanel.yFruits[i]) {
@@ -69,6 +90,10 @@ public class PlayerSnakeRunnable implements Runnable {
         }
     }
 
+    /**
+     * Checks if the snake has collided with the game boundaries, itself, or another snake.
+     * Sets the player's alive status to false if a collision is detected.
+     */
     public void checkCollisions() {
         int xCenter = WIDTH / 2;
         int yCenter = HEIGHT / 2;

@@ -1,6 +1,10 @@
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
+/**
+ * Represents a frog in the game.
+ * Implements the Runnable interface to allow the frog to run on a separate thread.
+ */
 public class FrogRunnable implements Runnable {
     private final GamePanel gamePanel;
     private final Random random;
@@ -11,7 +15,13 @@ public class FrogRunnable implements Runnable {
     private final int ELEMENTS;
     private final int UNIT_SIZE;
 
-
+    /**
+     * Constructs a FrogRunnable object.
+     *
+     * @param gamePanel      the game panel instance
+     * @param semaphore      the semaphore to control thread execution
+     * @param semaphoreReady the semaphore to signal thread readiness
+     */
     public FrogRunnable(GamePanel gamePanel, Semaphore semaphore, Semaphore semaphoreReady) {
         this.gamePanel = gamePanel;
         this.random = new Random();
@@ -23,6 +33,10 @@ public class FrogRunnable implements Runnable {
         this.UNIT_SIZE = gamePanel.UNIT_SIZE;
     }
 
+    /**
+     * The main run method for the frog thread.
+     * Acquires the semaphore, moves the frog, then releases the semaphore.
+     */
     @Override
     public void run() {
         while (gamePanel.isRunning) {
@@ -37,6 +51,10 @@ public class FrogRunnable implements Runnable {
         }
     }
 
+    /**
+     * Moves the frog to a new position.
+     * The new position is determined randomly and checked to be free of obstacles.
+     */
     private void moveFrog() {
         int X = gamePanel.xFrog;
         int Y = gamePanel.yFrog;
@@ -55,6 +73,13 @@ public class FrogRunnable implements Runnable {
         gamePanel.yFrog = newY;
     }
 
+    /**
+     * Checks if a given position is free from obstacles.
+     *
+     * @param x the x-coordinate to check
+     * @param y the y-coordinate to check
+     * @return true if the position is free, false otherwise
+     */
     private boolean isFree(int x, int y) {
         int xCenter = WIDTH / 2;
         int yCenter = HEIGHT / 2;
@@ -75,7 +100,6 @@ public class FrogRunnable implements Runnable {
             }
         }
 
-        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża AI1
         if (gamePanel.ai1Alive) {
             for (int i = 0; i < gamePanel.ai1Segments; i++) {
                 if (x == gamePanel.ai1XCoord[i] && y == gamePanel.ai1YCoord[i]) {
@@ -84,7 +108,6 @@ public class FrogRunnable implements Runnable {
             }
         }
 
-        // Sprawdzanie, czy nowa pozycja nie koliduje z ciałem węża AI2
         if (gamePanel.ai2Alive) {
             for (int i = 0; i < gamePanel.ai2Segments; i++) {
                 if (x == gamePanel.ai2XCoord[i] && y == gamePanel.ai2YCoord[i]) {
